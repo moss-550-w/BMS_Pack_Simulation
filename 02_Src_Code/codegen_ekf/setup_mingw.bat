@@ -1,0 +1,2 @@
+set "MINGW_ROOT=$MINGWROOT\bin"
+@set "PATH=%MINGW_ROOT%;%PATH%"

@@ -1,0 +1,29 @@
+# MATLAB / Simulink 临时与自动生成文件
+*.asv
+*.autosave
+*.m~
+slprj/
+*.slxc
+*.mex*
+
+# Simulink 缓存与备份
+*.slx.original
+*.bak
+
+# 仿真输出（按需保留，默认忽略大体积自动产物）
+03_Data/Sim_Out_Result/*.csv
+
+# codegen 临时构建目录（顶层）；保留 02_Src_Code/codegen_ekf 交付源码
+/codegen/
+# codegen 报告（体积大、非源码，不入库）
+02_Src_Code/codegen_ekf/html/
+02_Src_Code/codegen_ekf/*.mat
+02_Src_Code/codegen_ekf/buildInfo.mat
+
+# 系统文件
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# 保留空目录占位
+!**/.gitkeep
