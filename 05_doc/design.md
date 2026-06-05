@@ -227,28 +227,37 @@ Tc_j     = Tc_{j-1} + Q_cool_j/(mdot*Cp)    冷却液沿程升温（准稳态）
 
 **④ EKF C 代码生成对接 STM32**（`ekf_soc_step_cg.m` → Embedded Coder）
 
-面向 ARM Cortex-M 的嵌入式部署，对 EKF 做 codegen 兼容改造并生成可移植 C 源码：
+面向 ARM Cortex-M 的嵌入式部署，对 EKF 做 codegen 兼容改造并生成可移植 C 源码。
 
+**改造要点：**
 ```
-改造要点：
-  1) OCV 查表 pchip → linear（MATLAB Coder 不支持 pchip；dOCV/dSOC 取线段斜率）
-  2) 单步调用 + persistent 保持状态 x=[SOC;Vrc] 与协方差 P（契合 MCU 周期采样）
-  3) 定长内存：SOC_bp/OCV_bp 固定 21 点，标量 I/O，无 emxArray/malloc
-  4) lib 配置 + GenCodeOnly：仅产 C 源（不依赖主机编译器），SupportNonFinite=false
+1) OCV 查表 pchip → linear（MATLAB Coder 不支持 pchip；dOCV/dSOC 取线段斜率）
+2) 单步调用 + persistent 保持状态 x=[SOC;Vrc] 与协方差 P（契合 MCU 周期采样）
+3) 定长内存：SOC_bp/OCV_bp 固定 21 点，标量 I/O，无 emxArray/malloc
+4) lib 配置 + GenCodeOnly：仅产 C 源，SupportNonFinite=false → 精简代码
 入口：void ekf_soc_step_cg(double I_k, V_k, dt, prm*, reset, *soc, *vrc, *vhat)
 ```
 
-生成产物：`02_Src_Code/codegen_ekf/ekf_soc_step_cg.c/.h`（纯静态内存，~186 行），可直接集成进 STM32 工程（Keil / STM32CubeIDE，Cortex-M4F/M7 带 FPU 直接用 double）。
+**生成产物**：`02_Src_Code/codegen_ekf/ekf_soc_step_cg.c/.h`（纯静态内存，~186 行），可直接集成进 STM32 工程（Keil / STM32CubeIDE，Cortex-M4F/M7 带 FPU 直接用 double 浮点）。
 
-**等价性验证**（`Verify_EKF_Ccode`，PIL 算法层替代）：真 PIL 需目标硬件 + 硬件支持包，当前环境无硬件 / 无主机 C 编译器（仅 32 位 MinGW，MEX 需 64 位），故 SIL/MEX 不可执行，改以 MATLAB 层数值等价性佐证：
+**PIL / MEX 编译约束**：真 PIL 需目标硬件 + 硬件支持包，当前环境无硬件。SIL/MEX 级验证需 codegen 的 ninja 构建子系统——经深入调试发现当前 gcc 15.2.0 与该子系统存在两个硬兼容性边界：
+- C23 标准将 `nullptr` 纳为关键字，与 MATLAB R2025a codegen 生成的变量名冲突
+- MATLAB `system()` 调用 `.bat` 构建脚本在当前环境无法执行（已确认 mex 单独可用、C 源码生成可用、仅 ninja 链断裂）
+
+**等价性验证（PIL 算法层替代）**：`Verify_EKF_Ccode` 在 MATLAB 层逐位对比三版 EKF，量化 codegen 改造精度损失：
 
 | 版本 | vs 真值 RMSE | 说明 |
 |---|---|---|
 | 原版 pchip（浮点参考） | 0.369% | `ekf_soc_estimator` |
 | codegen 批处理 linear | 0.532% | `ekf_soc_estimator_cg` |
-| codegen 单步 linear（同源 C） | 0.532% | `ekf_soc_step_cg`，单步与批处理位级一致 |
+| codegen 单步 linear（同源 C） | 0.532% | `ekf_soc_step_cg`，与批处理版**位级一致（差 0）** |
 
-linear 查表致最大瞬态偏差 2.04%（仅 OCV 拐点），稳态收敛后≈0——嵌入式查表的合理取舍，精度仍远优于安时积分（~10%）。定点优化（Fixed-Point Designer）与真 PIL 留待有硬件时迭代。
+linear 查表致最大瞬态偏差 2.04%（仅 OCV 拐点），稳态收敛后≈0——嵌入式查表的合理取舍，精度仍远优于安时积分（~10%）。验证图 `asset/EKF_Ccode_Verify.png`。
+
+**上板前提**：
+- EKF 单步版入口原型与定长内存已验证可 codegen，生成的 C 源即嵌入式交付物
+- 有 STM32 开发板 + Hardware Support Package 时可执行真 PIL
+- gcc 版本回退至 MATLAB 官方兼容版（≤ MinGW 8.1）时 MEX/SIL 可执行
 
 ---
 

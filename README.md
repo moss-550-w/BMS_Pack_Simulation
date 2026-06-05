@@ -66,7 +66,7 @@
 - **① DC-DC 主动均衡**：集中式电荷转移（高 SOC 串 → 低 SOC 串，效率 90%）。静置 10h 压差 183→**15 mV**（被动仅 →128 mV），SOC 离散度 16%→1.2%，峰温仅 +0.35°C——能量利用率远高于耗散式被动均衡。
 - **② 液冷热管理**：冷却液沿串流动的分布式换热，峰温较风冷降 **4.5°C**，并复现沿流向温度梯度（流量越低梯度越大，0.02 kg/s 时达 4.4°C）。
 - **③ Arrhenius 热失控**：单步自产热 `q = H·A·cⁿ·exp(-Ea/RT)` + 反应物耗尽自限。相同强内短路下，线性产热稳定 **136°C**，开启自产热则正反馈失控至 **748°C** 并链式蔓延全包，清晰揭示热失控危险性。
-- **④ EKF C 代码生成（STM32）**：`ekf_soc_step_cg.m` 经 Embedded Coder 生成**单步调用、persistent 状态、定长内存（无 malloc）的可移植 C 源码**，可直接集成进 STM32 工程（Cortex-M4F/M7）。无目标硬件下以 MATLAB 层等价性验证替代 PIL：嵌入式 linear 查表版 RMSE **0.53%**（pchip 原版 0.37%），单步与批处理版**位级一致**。
+- **④ EKF C 代码生成（STM32）**：`ekf_soc_step_cg.m` 经 Embedded Coder 生成**单步调用、persistent 状态、定长内存（无 malloc）的可移植 C 源码**（`codegen_ekf/ekf_soc_step_cg.c/.h`，~186 行），可直接集成进 STM32 工程（Keil/STM32CubeIDE，Cortex-M4F/M7 带 FPU）。无目标硬件下以 MATLAB 层等价性验证替代 PIL（三版逐位对比：原版 pchip RMSE 0.37%、cg-linear 0.53%、单步=批处理差 0）。
 
 ![EKF C 代码等价性验证](asset/EKF_Ccode_Verify.png)
 
@@ -152,10 +152,10 @@ BMS_Pack_Simulation/
 - [x] ① DC-DC 主动均衡（`active_balancing.m`，主/被动对比）
 - [x] ② 液冷热管理精细化（沿流向冷却液节点链，温度梯度）
 - [x] ③ Arrhenius 热失控（`arrhenius_heat.m`，触发/链式蔓延/自限）
-- [x] ④ EKF C 代码生成（`ekf_soc_step_cg.m` → Cortex-M C 源码，等价性验证 RMSE 0.53%）
+- [x] ④ EKF C 代码生成（`ekf_soc_step_cg.m` → Cortex-M C 源码，等价性验证 RMSE 0.53%，位级一致）
 
 > 单元测试 15 项全通过；新增 `Run_Extended_Sim` / `Plot_Extended` / `Show_Runaway` / `Build_EKF_Ccode` / `Verify_EKF_Ccode`。
-> ④ 真 PIL 需目标硬件 + 硬件支持包；当前环境无硬件，以 MATLAB 层数值等价性验证替代。
+> ④ PIL 约束：真 PIL 需目标硬件；SIL/MEX 需 codegen 兼容的 MinGW（当前 gcc 15.2.0 的 C23 关键字冲突 + ninja 构建子系统不兼容）。作为 PIL 替代方案：MATLAB 层三版逐位等价验证 + C 源码生成可用（`ekf_soc_step_cg` → 定长内存 C 源），验证图 `EKF_Ccode_Verify.png`。
 
 ## License
 
