@@ -159,4 +159,4 @@ BMS_Pack_Simulation/
 
 ## License
 
-MIT
+[MIT](LICENSE) © 2026 Boye Dai
